@@ -19,7 +19,6 @@ void merge(double *arr1, double *arr2, size_t size2);
 void stupid_sort(double *arr, size_t size);
 void print_array(double *arr, size_t size,char* message);
 int main(int argc, char* argv[]) {
-    struct timeval T1, T2; //时间戳
     long time_ms, minimal_time_ms = -1;
     int N;
     if(argc > 1)
