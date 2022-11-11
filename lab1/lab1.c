@@ -9,7 +9,7 @@
 
 #define A 24
 #define SEED 34
-#define DEFAULT_N 10
+#define DEFAULT_N 100
 
 double* fill_array(double *arr, size_t size, unsigned int min, unsigned int max);
 void map1(double *arr, size_t size);
@@ -19,7 +19,8 @@ void merge(double *arr1, double *arr2, size_t size2);
 void stupid_sort(double *arr, size_t size);
 void print_array(double *arr, size_t size,char* message);
 int main(int argc, char* argv[]) {
-    long time_ms, minimal_time_ms = -1;
+    struct timeval T1, T2;
+    long delta_ms=0;
     int N;
     if(argc > 1)
         N = (size_t) atoi(argv[1]);  //读取参数
@@ -27,30 +28,27 @@ int main(int argc, char* argv[]) {
         N = DEFAULT_N;
     double x, *m1 = (double*)malloc(sizeof(double) * N), *m2 = (double*)malloc(sizeof(double) * (N / 2));
 
-    for (int i = 0; i < 1; ++i) {
-        gettimeofday(&T1, NULL); /* запомнить текущее время T1 */
+    gettimeofday(&T1, NULL);
+    for (int i = 0; i < 50; ++i) {
         fill_array(m1, N, 0, A);
         fill_array(m2, N/2, A, 10*A);
-        print_array(m1,N,"m1");
-        print_array(m2,N,"m2");
 
         map1(m1, N);
         map2( m2, N/2);
+
         merge(m1, m2, N/2);
         stupid_sort(m2, N/2);
-        print_array(m1,N,"m1");
-        print_array(m2,N,"m2");
         x = reduce(m2, N/2);
-        gettimeofday(&T2, NULL); /* запомнить текущее время T2 */
-        time_ms = 1000 * (T2.tv_sec - T1.tv_sec) + (T2.tv_usec - T1.tv_usec) / 1000;
-        if ((minimal_time_ms == -1) || (time_ms < minimal_time_ms))
-            minimal_time_ms = time_ms;
+
+        printf("%d => X:%f\n",i+1,x);
     }
 
+    gettimeofday(&T2, NULL); /* запомнить текущее время T2 */
+    delta_ms = 1000 * (T2.tv_sec - T1.tv_sec) + (T2.tv_usec - T1.tv_usec) / 1000;
+
+    printf("\nN=%d. Milliseconds passed: %ld\n", N, delta_ms); /* T2 -T1 */
     free(m1);
     free(m2);
-
-    printf("Best time: %ld ms; N = %zu; X = %f\n", minimal_time_ms, N, x); /* затраченное время */
     return 0;
 }
 
@@ -71,6 +69,7 @@ double* fill_array(double *arr, size_t size, unsigned int min, unsigned int max)
 void map1(double *arr, size_t size) {
     for (int i = 0; i < size; i++) {
         arr[i]= sqrt(1.0/ tanh(arr[i]));
+//        arr[i]= sqrt(1.0/ tanh(arr[i]));
     }
 }
 
@@ -117,23 +116,20 @@ void stupid_sort(double *arr, size_t size) {
 */
 double reduce(double *arr, size_t size) {
     double res = 0, min;
+    int i = 0;
+    min = arr[0];
 
-    if (size > 0)
-        min = arr[0];
-    else
-        min = 0;
-    for (int i = 0; i < size; i++) {
+    for (i = 0; i < size; i++) {
         if (arr[i] < min && arr[i] != 0) {
             min = arr[i];
         }
     }
 
-    for (int i = 0; i < size; i++) {
+    for (i = 0; i < size; i++) {
         if ((int)(arr[i] / min) % 2 == 0) {
             res += sin(arr[i]);
         }
     }
-
     return res;
 }
 
@@ -143,7 +139,7 @@ double reduce(double *arr, size_t size) {
 void print_array(double *arr, size_t size,char* message) {
     printf("%s\n",message);
     for (size_t i = 0; i < size; ++i) {
-        printf("%f ",arr[i]);
+        printf("%.4f ",arr[i]);
     }
     printf("\n");
 }
