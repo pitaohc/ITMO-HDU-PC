@@ -23,11 +23,15 @@ int main(int argc, char* argv[]) {
     long delta_ms=0;
     int N;
     if(argc > 1)
+    {
         N = (size_t) atoi(argv[1]);  //读取参数
+    }
     else
+    {
         N = DEFAULT_N;
+    }
     double x, *m1 = (double*)malloc(sizeof(double) * N), *m2 = (double*)malloc(sizeof(double) * (N / 2));
-
+    printf("N=%d\n",N);
     gettimeofday(&T1, NULL);
     for (int i = 0; i < 50; ++i) {
         fill_array(m1, N, 0, A);
@@ -40,13 +44,13 @@ int main(int argc, char* argv[]) {
         stupid_sort(m2, N/2);
         x = reduce(m2, N/2);
 
-        printf("%d => X:%f\n",i+1,x);
+        fprintf(stdout,"%d => X:%f\n",i+1,x);
     }
 
     gettimeofday(&T2, NULL); /* запомнить текущее время T2 */
     delta_ms = 1000 * (T2.tv_sec - T1.tv_sec) + (T2.tv_usec - T1.tv_usec) / 1000;
 
-    printf("\nN=%d. Milliseconds passed: %ld\n", N, delta_ms); /* T2 -T1 */
+    printf("N=%d. Milliseconds passed: %ld\n", N, delta_ms); /* T2 -T1 */
     free(m1);
     free(m2);
     return 0;
@@ -57,7 +61,10 @@ int main(int argc, char* argv[]) {
 */
 double* fill_array(double *arr, size_t size, unsigned int min, unsigned int max)
 {
-    unsigned int seed = SEED;
+//    unsigned int seed = SEED;
+    struct  timeval time;
+    gettimeofday(&time,NULL);
+    unsigned int seed = time.tv_usec+time.tv_sec;
     for (int i = 0; i < size; i++)
         arr[i] = ((double) (rand_r(&seed)%(100*(max-min)))/100) + min;
     return arr;
@@ -120,7 +127,7 @@ double reduce(double *arr, size_t size) {
     min = arr[0];
 
     for (i = 0; i < size; i++) {
-        if (arr[i] < min && arr[i] != 0) {
+        if (arr[i] < min && (int)arr[i] != 0) {
             min = arr[i];
         }
     }
