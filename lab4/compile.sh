@@ -12,22 +12,23 @@ fi
 cd build_$Compiler
 
 # 编译目标 compile all targets
-$Compiler -O3 -Wall -Werror -o lab1-seq ../lab1.c -lm # 编译无并行目标
+$Compiler -O3 -Wall -Werror -o lab4-seq ../lab4.c -lm # 编译无并行目标
 if [ $? -eq 0 ];then
     echo 'Compile seq success!!!'
-    programs=("${programs[@]}" lab1-seq) # 添加程序文件名称到程序数组
+    programs=("${programs[@]}" lab4-seq) # 添加程序文件名称到程序数组
 fi
 
 # 编译并行目标 compile parallel target
 for loop in ${threads[@]}
 do
-    $Compiler -O3 -Wall -Werror -floop-parallelize-all -ftree-parallelize-loops=$loop ../lab1.c -o lab1-par-$loop -lm 
+    $Compiler -O3 -Wall -Werror -floop-parallelize-all -ftree-parallelize-loops=$loop ../lab4.c -o lab4-par-$loop -lm -fopenmp
     if [ $? -eq 0 ];then
-        echo "Compile lab1-par-${loop} success!!!"
-        programs=("${programs[@]}" lab1-par-${loop})
+        echo "Compile lab4-par-${loop} success!!!"
+        programs=("${programs[@]}" lab4-par-${loop})
     fi
 done
-
+threads=(1 "${threads[@]}")
+echo "threads: ${threads[@]}"
 echo "programs: ${programs[@]}"
 
 # 运行测试 run test
@@ -41,16 +42,18 @@ fi
 mkdir log
 
 # 运行程序 execute programs
-for program in ${programs[@]}
+for i in $(seq 5)
 do
-    echo "$program:"
+    program=${programs[i-1]}
+    thread=${threads[i-1]}
+    echo "$program: $thread"
     echo "$program:" >> log/total.log # 输出程序名称到总日志
-    for i in $(seq 11) # 每个程序测试11次 run program by different N
+    for j in $(seq 11) # 每个程序测试11次 run program by different N
     do
-        N=$(($N1+$step*($i-1)))
-        echo "test $i: N=$N"
-        echo -e "\ntest $i: N=$N" >> log/$program.log
-        ./$program $N >> log/$program.log # input N to program as argument 将N作为参数输入到程序中
+        N=$(($N1+$step*($j-1)))
+        echo "test $j: N=$N"
+        echo -e "\ntest $j: N=$N M=$thread" >> log/$program.log
+        ./$program $N ${thread-1} >> log/$program.log # input N to program as argument 将N作为参数输入到程序中
     done
     cat log/$program.log | grep "Milliseconds passed" >> log/total.log # 截取程序输出中的时间关键字Milliseconds passed并记录到总日志中
 done
