@@ -6,18 +6,18 @@
 #include <stdio.h>
 #include <math.h>
 
-//#ifndef _OPENMP
 //#define _OPENMP
-//#endif
 
 #ifdef _OPENMP
+
 #include<omp.h>
+
 #endif
 #define A 24
 #define SEED 34
 #define DEFAULT_N 100
 #define DEFAULT_M 4
-#define ROUND 1
+#define ROUND 50
 
 #define NONE         "\033[m"
 #define RED          "\033[0;32;31m"
@@ -35,96 +35,149 @@
 #define YELLOW       "\033[1;33m"
 #define LIGHT_GRAY   "\033[0;37m"
 #define WHITE        "\033[1;37m"
-double* fill_array(double *arr, size_t size, unsigned int min, unsigned int max);
+
+double *fill_array(double *arr, size_t size, unsigned int min, unsigned int max);
+
 void map1(double *arr, size_t size);
+
 void map2(double *arr, size_t size);
+
 double reduce(double *arr, size_t size);
+
 void merge(double *arr1, double *arr2, size_t size2);
+
 void stupid_sort(double *arr, size_t size);
-double* merge_sorted_arr(double *arr1, size_t size1,double *arr2, size_t size2);
-void print_array(double *arr, size_t size,char* message);
+
+double *merge_sorted_arr(double *arr1, size_t size1, double *arr2, size_t size2);
+
+void print_array(double *arr, size_t size, char *message);
+
 double get_time();
-void monitor();
-int N,M; // size of array, number of threads
 
-int main(int argc, char* argv[]) {
 #ifdef _OPENMP
-#pragma omp parallel num_threads(1)
-    {
-        monitor();
-    }
-#endif
-    double T1, T2; //record time
-    double delta_ms=0; // 时间差值 T2-T1
 
-    if(argc > 1)
-    {
-        N = (size_t) atoi(argv[1]);  //get N from argument 读取参数
+void monitor();
+
+#endif
+int N, M; // size of array, number of threads
+int loop_count = 0;
+
+#ifdef _OPENMP
+
+/**
+ * 监视函数
+ * */
+void monitor() {
+    printf(RED "Monitor: Start!!!\n"NONE);
+    double lasttime = get_time();
+    int i = 0;
+    while (1) {
+        double time = get_time();
+        if (time - lasttime < 1000) {
+            continue;
+        }
+        lasttime = time;
+
+        printf(RED "Monitor: "GREEN"%.1f%%\t|"NONE, (double) loop_count / ROUND * 100);
+        for (i = 0; i < 10; i++) {
+            char sign = (i <= (double)loop_count * 10/ ROUND ) ? '=' : ' ';
+            printf(GREEN"%c"NONE, sign);
+        }
+        printf(GREEN"|\n"NONE);
+        if (loop_count >= ROUND) {
+            break;
+        }
     }
-    else
-    {
+    printf(RED "Monitor: End!!!\n"NONE);
+
+}
+
+#endif
+
+int main(int argc, char *argv[]) {
+
+
+    double T1, T2; //record time
+    double delta_ms = 0; // 时间差值 T2-T1
+    printf("Main: Start!!!");
+    if (argc > 1) {
+        N = (size_t) atoi(argv[1]);  //get N from argument 读取参数
+    } else {
         N = DEFAULT_N; //if not argument , set N by default
     }
 
-    if (argc > 2)
-    {
-        M = (size_t)atoi(argv[2]);
-    }
-    else 
-    {
+    if (argc > 2) {
+        M = (size_t) atoi(argv[2]);
+    } else {
         M = DEFAULT_M;
     }
+    double x, *m1 = (double *) malloc(sizeof(double) * N), *m2 = (double *) malloc(sizeof(double) * (N / 2));
+    printf("N=%d\n", N);
+    T1 = get_time();
     // 设置线程数
 #ifdef _OPENMP
-    printf("number of threads: %d\n",M);
+    printf("number of threads: %d\n", M);
     omp_set_num_threads(M);
-#endif
-    double x, *m1 = (double*)malloc(sizeof(double) * N), *m2 = (double*)malloc(sizeof(double) * (N / 2));
-    printf("N=%d\n",N);
-    T1 = get_time();
-    for (int i = 0; i < ROUND; ++i) {
-        // Generate Stage.
-        fill_array(m1, N, 0, A);
-        fill_array(m2, N/2, A, 10*A);
-        // Map Stage.
-        map1(m1, N);
-        map2( m2, N/2);
-        // Merge Stage.
-        merge(m1, m2, N/2);
-        // Sort Stage.
-        double sort_begin,sort_end;
-        sort_begin = get_time();
-#ifdef _OPENMP
-        //TODO:修改合并阶段，能够生成k个线程对数组排序
-#pragma omp parallel sections
-        {
-#pragma omp section
-            {
-                stupid_sort(m2, N/4);
-            }
-#pragma omp section
-            {
-                stupid_sort(m2+N/4, N/4);
-            }
-        }
-        double* m2_temp = merge_sorted_arr(m2,N/4,m2+N/4,N/4);
-        free(m2); //释放原先的内存位置 free original memory to avoid memory leaking
-        m2 = m2_temp;
-#else
-        stupid_sort(m2, N/2);
-#endif
-        sort_end = get_time();
-        printf("sort stage time: %.4fms\n",sort_end-sort_begin);
 
-        // Reduce Stage.
-        x = reduce(m2, N/2);
-        // Output X
-        fprintf(stdout,"%d => X:%f\n",i+1,x);
+
+#pragma omp parallel sections
+    {
+#pragma omp section
+        {
+#endif
+            for (int i = 0; i < ROUND; ++i) {
+                // Generate Stage.
+                fill_array(m1, N, 0, A);
+                fill_array(m2, N / 2, A, 10 * A);
+                // Map Stage.
+                map1(m1, N);
+                map2(m2, N / 2);
+                // Merge Stage.
+                merge(m1, m2, N / 2);
+                // Sort Stage.
+                double sort_begin, sort_end;
+                sort_begin = get_time();
+#ifdef _OPENMP
+                //TODO:修改合并阶段，能够生成k个线程对数组排序
+#pragma omp parallel sections
+                {
+#pragma omp section
+                    {
+                        stupid_sort(m2, N / 4);
+                    }
+#pragma omp section
+                    {
+                        stupid_sort(m2 + N / 4, N / 4);
+                    }
+                }
+                double *m2_temp = merge_sorted_arr(m2, N / 4, m2 + N / 4, N / 4);
+                free(m2); //释放原先的内存位置 free original memory to avoid memory leaking
+                m2 = m2_temp;
+#else
+                stupid_sort(m2, N/2);
+#endif
+                sort_end = get_time();
+                printf("sort stage time: %.4fms\n", sort_end - sort_begin);
+
+                // Reduce Stage.
+                x = reduce(m2, N / 2);
+                // Output X
+                fprintf(stdout, "%d => X:%f\n", i + 1, x);
+                loop_count++;
+            }
+            T2 = get_time();
+            // Output delta time(ms)
+            delta_ms = T2 - T1;
+            printf("N=%d. Milliseconds passed: %.4fms\n", N, delta_ms); /* T2 -T1 */
+#ifdef _OPENMP
+        }
+#pragma omp section
+        {
+            monitor();
+        }
     }
-    T2 = get_time();
-    // Output delta time(ms)
-    delta_ms = T2 - T1;
-    printf("N=%d. Milliseconds passed: %.4fms\n", N, delta_ms); /* T2 -T1 */
+#endif
+
     // Release memory distributed by malloc.
     free(m1);
     free(m2);
@@ -139,20 +192,18 @@ int main(int argc, char* argv[]) {
 * @param min: mininum of random range
 * @param max: maxinum of random range
 */
-double* fill_array(double *arr, size_t size, unsigned int min, unsigned int max)
-{
+double *fill_array(double *arr, size_t size, unsigned int min, unsigned int max) {
     unsigned int seed = SEED;
     double begin = get_time();
     int i;
 #ifdef _OPENMP
-#pragma omp parallel for private(i) shared(arr)  schedule(guided,M)
+#pragma omp parallel for private(i) shared(arr)  schedule(guided, M)
 #endif
-    for (i = 0; i < size; i++)
-    {
-        arr[i] = ((double) (rand_r(&seed)%(100*(max-min)))/100) + min;
+    for (i = 0; i < size; i++) {
+        arr[i] = ((double) (rand_r(&seed) % (100 * (max - min))) / 100) + min;
     }
     double end = get_time();
-    printf("fill stage time: %.4fms\n",end-begin);
+    printf("fill stage time: %.4fms\n", end - begin);
     return arr;
 }
 
@@ -166,13 +217,13 @@ void map1(double *arr, size_t size) {
     int i;
     double begin = get_time();
 #ifdef _OPENMP
-#pragma omp parallel for private(i) shared(arr)  schedule(guided,M)
+#pragma omp parallel for private(i) shared(arr)  schedule(guided, M)
 #endif
     for (i = 0; i < size; i++) {
         arr[i] = 1.0 / tanh(sqrt(arr[i]));
     }
     double end = get_time();
-    printf("map stage 1 time: %.4fms\n",end-begin);
+    printf("map stage 1 time: %.4fms\n", end - begin);
 
 }
 
@@ -182,30 +233,27 @@ void map1(double *arr, size_t size) {
 * @param arr
 * @param size: length of array
 */
-void map2(double *arr,size_t size)
-{
+void map2(double *arr, size_t size) {
     int i;
     double begin = get_time();
-    double* copyed_arr = (double*)malloc(sizeof(double) * size);
+    double *copyed_arr = (double *) malloc(sizeof(double) * size);
 #ifdef _OPENMP
-#pragma omp parallel for private(i) shared(arr,copyed_arr)  schedule(guided,M)
+#pragma omp parallel for private(i) shared(arr, copyed_arr)  schedule(guided, M)
 #endif
-    for(i=0;i<size;++i)
-    {
+    for (i = 0; i < size; ++i) {
         copyed_arr[i] = arr[i];
     }
 
-    arr[0]= fabs(sin(arr[0]));
+    arr[0] = fabs(sin(arr[0]));
 #ifdef _OPENMP
-#pragma omp parallel for private(i) shared(arr,copyed_arr)  schedule(guided,M)
+#pragma omp parallel for private(i) shared(arr, copyed_arr)  schedule(guided, M)
 #endif
-    for (i = 1; i < size; i++)
-    {
+    for (i = 1; i < size; i++) {
 
-        arr[i]= fabs(sin(arr[i]+copyed_arr[i-1]));
+        arr[i] = fabs(sin(arr[i] + copyed_arr[i - 1]));
     }
     double end = get_time();
-    printf("map stage 2 time: %.4fms\n",end-begin);
+    printf("map stage 2 time: %.4fms\n", end - begin);
 
 }
 
@@ -216,14 +264,12 @@ void map2(double *arr,size_t size)
 * @param arr2: array 2
 * @param size2: length of array 2
 */
-void merge(double *arr1, double *arr2, size_t size2)
-{
+void merge(double *arr1, double *arr2, size_t size2) {
     int i;
 #ifdef _OPENMP
-#pragma omp parallel for private(i) shared(arr1,arr2)  schedule(guided,M)
+#pragma omp parallel for private(i) shared(arr1, arr2)  schedule(guided, M)
 #endif
-    for (i = 0; i < size2; i++)
-    {
+    for (i = 0; i < size2; i++) {
         arr2[i] = pow(arr1[i], arr2[i]);
     }
 }
@@ -261,14 +307,14 @@ double reduce(double *arr, size_t size) {
     min = arr[0];
     // find the mininum number which not equal 0.
     for (i = 0; i < size; i++) {
-        if (arr[i] < min && (int)arr[i] != 0) {
+        if (arr[i] < min && (int) arr[i] != 0) {
             min = arr[i];
         }
     }
 
     // reduce
     for (i = 0; i < size; i++) {
-        if ((int)(arr[i] / min) % 2 == 0) {
+        if ((int) (arr[i] / min) % 2 == 0) {
             res += sin(arr[i]);
         }
     }
@@ -282,10 +328,10 @@ double reduce(double *arr, size_t size) {
 * @param size: length of array
 * @param message: extra message
 */
-void print_array(double *arr, size_t size,char* message) {
-    printf("%s\n",message);
+void print_array(double *arr, size_t size, char *message) {
+    printf("%s\n", message);
     for (size_t i = 0; i < size; ++i) {
-        printf("%.4f ",arr[i]);
+        printf("%.4f ", arr[i]);
     }
     printf("\n");
 }
@@ -293,11 +339,10 @@ void print_array(double *arr, size_t size,char* message) {
 /**
  * 获得当前时间，单位ms
  * */
-double get_time()
-{
-    double result=0.0f;
+double get_time() {
+    double result = 0.0f;
 #ifdef _OPENMP
-    result =  omp_get_wtime() * 1000;
+    result = omp_get_wtime() * 1000;
 #else
     struct timeval T;
     gettimeofday(&T, NULL);
@@ -306,33 +351,25 @@ double get_time()
 #endif
     return result;
 }
+
 /**
  * 合并两个有序数组
  * TODO:修改合并函数，能够合并k个有序数组
  * */
-double* merge_sorted_arr(double *arr1, size_t size1,double *arr2, size_t size2) {
-    int p1=0,p2=0,p_r=0;
-    double* result_arr = (double*) malloc((size1+size2)*sizeof(double));
-    while(p1<size1 && p2 < size2)
-    {
-        result_arr[p_r++]=(arr1[p1]<arr2[p2])?arr1[p1++]:arr2[p2++];
+double *merge_sorted_arr(double *arr1, size_t size1, double *arr2, size_t size2) {
+    int p1 = 0, p2 = 0, p_r = 0;
+    double *result_arr = (double *) malloc((size1 + size2) * sizeof(double));
+    while (p1 < size1 && p2 < size2) {
+        result_arr[p_r++] = (arr1[p1] < arr2[p2]) ? arr1[p1++] : arr2[p2++];
     }
-    while(p1<size1) //补上arr1剩余元素
+    while (p1 < size1) //补上arr1剩余元素
     {
-        result_arr[p_r++]=arr1[p1++];
+        result_arr[p_r++] = arr1[p1++];
     }
-    while(p2<size2) //补上arr2剩余元素
+    while (p2 < size2) //补上arr2剩余元素
     {
-        result_arr[p_r++]=arr2[p2++];
+        result_arr[p_r++] = arr2[p2++];
     }
     return result_arr;
 }
-/**
- * 监视函数
- * TODO:完成监视函数，展示百分比和进度条
- * */
-void monitor() {
-//    printf( RED "current function is %s " RED " file line is %d\n" NONE,
-//            __FUNCTION__, __LINE__ );
-    printf(RED "Monitor: Start!!!\n"NONE);
-}
+
